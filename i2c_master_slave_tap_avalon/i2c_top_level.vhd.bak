@@ -35,10 +35,11 @@ architecture behv of i2c_avalon is
  signal reg_slave     :  std_logic_vector  (7 downto 0)  :=  (others =>  '0');
  signal reg_wr_size   :  std_logic_vector  (7 downto 0)  :=  (others =>  '0');
  signal reg_rd_size   :  std_logic_vector  (7 downto 0)  :=  (others =>  '0');
+ signal shift_reg     :  std_logic_vector  (7 downto 0)  :=  (others =>  '0');
  type   buffer_array  is  array (bufSize downto 0) of std_logic_vector  (7 downto 0);
  signal data_buffer   :  buffer_array;
  signal counter       :  integer                         :=  0;
--- signal fifo_size     :  integer  range 0 to  bufSize    :=  0;
+ signal fifo_index    :  integer  range 0 to  bufSize    :=  0;
  signal fifo_p        :  integer  range 0 to  bufSize    :=  0;
  signal bit_counter   :  integer  range 0 to  7          :=  0;
  
@@ -77,6 +78,14 @@ begin
             case  avs_address is
               when  x"0"    =>  avs_read_data <=  reg_control;
               when  x"1"    =>  avs_read_data <=  reg_status;
+              when  x"2"    =>  avs_read_data <=  reg_wr_size;
+              when  x"3"    =>  avs_read_data <=  reg_rd_size;
+              when  x"4"    =>  avs_read_data <=  data_buffer(fifo_p);
+                                if  (fifo_p = 0)  then
+                                  fifo_p  <=  fifo_p;
+                                else
+                                  fifo_p  <=  fifo_p - 1;
+                                end  if;
               when  others  =>  reg_status    <=  reg_status;
             end case;
           end if;
@@ -103,6 +112,7 @@ begin
           if (counter = to_integer(unsigned(i2c_clock))) then
             counter <=  0;
             i2c_op  <=  op_write0;
+            shift_reg  <=  data_buffer(fifo_p);
           else
             counter <=  counter + 1;
           end if;
@@ -138,6 +148,7 @@ begin
                 i2c_op      <=  op_check_ack0;
                 bit_counter <=  0;
             else
+              shift_reg  <=  shift_reg(6  downto  0)  & '0';
               bit_counter <=  bit_counter + 1;
               i2c_op      <=  op_write0;
             end if;
@@ -150,7 +161,6 @@ begin
             counter <=  0;
             i2c_op  <=  op_check_ack1;
           else
-            reg_control(3)  <=  not sda;
             counter <=  counter + 1;
           end if;
         end if;
@@ -158,6 +168,7 @@ begin
           if (counter = to_integer(unsigned(i2c_clock))) then
             counter <=  0;
             i2c_op  <=  op_check_ack2;
+            reg_control(3)  <=  not sda;
           else
             counter <=  counter + 1;
           end if;
@@ -173,15 +184,18 @@ begin
         if  (i2c_op = op_check_ack3)  then
           if (counter = to_integer(unsigned(i2c_clock))) then
             counter <=  0;
-            if  (fifo_p = fifo_size - 1)  then
-              fifo_p          <=  0;
-              fifo_size       <=  0;
-              bit_counter     <=  0;
-              i2c_op          <= op_halt;
-              reg_control(1)  <=  '0';
+            if  (reg_control(3) = '1')  then
+              if  (fifo_index = to_integer(unsigned(reg_wr_size)))  then
+                fifo_index          <=  0;
+                bit_counter     <=  0;
+                i2c_op          <= op_halt;
+                reg_control(1)  <=  '0';
+              else
+                i2c_op  <=  op_write0;
+                fifo_index  <=  fifo_index  + 1;
+              end if;
             else
-              i2c_op  <=  op_write0;
-              fifo_p  <=  fifo_p  + 1;
+              i2c_op  <= op_start0;
             end if;
           else
             counter <=  counter + 1;
@@ -189,50 +203,50 @@ begin
         end if;
         
 --  Slave I2C operations
-        if  (i2cSlaveEnable = x"8" and scl = '1' and sda = '0' and sda1 = '0' and sda2 = '1')  then
-          i2c_op  <=  sl_start;
-        end if;
-        
-        if  (i2c_op = sl_start and scl = '1' and scl1 = '1' and scl2 = '0')  then
-          if  (bit_counter = 7) then
-            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
-            bit_counter <=  0;
-            if  (data_buffer(fifo_size)(7  downto  1) = i2cSlaveAddress)  then
-              i2c_op <=  sl_ack0;
-            else
-              i2c_op <=  sl_nack0;
-            end if;
-          else
-            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
-            bit_counter <=  bit_counter + 1;
-          end if;
-        end if;
-        
-        if (scl = '0' and scl1 = '0' and scl2 = '1')  then
-          if  (i2c_op = sl_ack0)  then
-            i2c_op  <=  sl_ack1;
-          elsif (i2c_op = sl_ack1)  then
-            fifo_size <=  fifo_size + 1;
-            if  (data_buffer(0)(0) = '0') then
-              i2c_op  <=  sl_read;
-            else
-              i2c_op  <=  sl_write;
-            end if;
-          elsif (i2c_op = sl_nack0) then
-            i2c_op <= sl_nack1;
-          end if;
-        end if;
-        
-        if  (i2c_op = sl_read and scl = '1' and scl1 = '1' and scl2 = '0')  then
-          if  (bit_counter = 7) then
-            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
-            bit_counter <=  0;
-            i2c_op <=  sl_ack0;
-          else
-            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
-            bit_counter <=  bit_counter + 1;
-          end if;
-        end if;
+--        if  (i2cSlaveEnable = x"8" and scl = '1' and sda = '0' and sda1 = '0' and sda2 = '1')  then
+--          i2c_op  <=  sl_start;
+--        end if;
+--        
+--        if  (i2c_op = sl_start and scl = '1' and scl1 = '1' and scl2 = '0')  then
+--          if  (bit_counter = 7) then
+--            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
+--            bit_counter <=  0;
+--            if  (data_buffer(fifo_size)(7  downto  1) = i2cSlaveAddress)  then
+--              i2c_op <=  sl_ack0;
+--            else
+--              i2c_op <=  sl_nack0;
+--            end if;
+--          else
+--            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
+--            bit_counter <=  bit_counter + 1;
+--          end if;
+--        end if;
+--        
+--        if (scl = '0' and scl1 = '0' and scl2 = '1')  then
+--          if  (i2c_op = sl_ack0)  then
+--            i2c_op  <=  sl_ack1;
+--          elsif (i2c_op = sl_ack1)  then
+--            fifo_size <=  fifo_size + 1;
+--            if  (data_buffer(0)(0) = '0') then
+--              i2c_op  <=  sl_read;
+--            else
+--              i2c_op  <=  sl_write;
+--            end if;
+--          elsif (i2c_op = sl_nack0) then
+--            i2c_op <= sl_nack1;
+--          end if;
+--        end if;
+--        
+--        if  (i2c_op = sl_read and scl = '1' and scl1 = '1' and scl2 = '0')  then
+--          if  (bit_counter = 7) then
+--            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
+--            bit_counter <=  0;
+--            i2c_op <=  sl_ack0;
+--          else
+--            data_buffer(fifo_size)(7 - bit_counter)  <=  sda;
+--            bit_counter <=  bit_counter + 1;
+--          end if;
+--        end if;
       end if
     end if;
   end process;
@@ -241,10 +255,10 @@ begin
                                     '1' when op_halt_m,
                                     '0' when op_start0,
                                     '0' when op_start1,
-                                    data_buffer(fifo_p)(7 - bit_counter)  when  op_write0,
-                                    data_buffer(fifo_p)(7 - bit_counter)  when  op_write1,
-                                    data_buffer(fifo_p)(7 - bit_counter)  when  op_write2,
-                                    data_buffer(fifo_p)(7 - bit_counter)  when  op_write3,
+                                    shift_reg(7)  when  op_write0,
+                                    shift_reg(7)  when  op_write1,
+                                    shift_reg(7)  when  op_write2,
+                                    shift_reg(7)  when  op_write3,
                                     '1' when  op_check_ack3,
                                     '0' when  sl_ack1,
                                     '1' when  sl_nack1,
