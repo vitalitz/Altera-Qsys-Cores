@@ -1,0 +1,107 @@
+m255
+K4
+z2
+13
+cModel Technology
+Z0 dC:/questasim64_10.2c/examples
+!s112 0.1
+!i10d 8192
+!i10e 25
+!i10f 100
+T_opt
+Vz5cGL98]IP`]U6ignigTR1
+04 2 4 work tb fast 0
+=1-d43d7e53fe84-55f84346-32c-10c0
+o-quiet -auto_acc_if_foreign -work work +acc
+n@_opt
+OL;O;10.2c;57
+Z1 dC:/questasim64_10.2c/examples
+!s110 1442333510
+vclk_gen
+Z2 DXx6 sv_std 3 std 0 22 `a<MJET1=lN@jzbA7kHm;1
+IO87fRoC7Qo<Y=c^MOVKBk2
+Z3 V`JN@9S9cnhjKRR_L]QIcM3
+S1
+Z4 dD:/Documents/GitHub/I2C_Master_Slave_Avalon
+w1441916716
+8D:/Documents/GitHub/I2C_Master_Slave_Avalon/clk_gen.sv
+FD:/Documents/GitHub/I2C_Master_Slave_Avalon/clk_gen.sv
+L0 1
+Z5 OL;L;10.2c;57
+r1
+31
+Z6 o-work work -sv -L mtiAvm -L mtiOvm -L mtiUvm -L mtiUPF
+Z7 !s110 1442333498
+!s100 3ezjih]>?XF<2H?06j7WW1
+!s105 clk_gen_sv_unit
+!s108 1442333498.022000
+!s107 D:/Documents/GitHub/I2C_Master_Slave_Avalon/clk_gen.sv|
+!s90 -reportprogress|300|-work|work|-vopt|-sv|D:/Documents/GitHub/I2C_Master_Slave_Avalon/clk_gen.sv|
+!i10b 1
+!s85 0
+!i111 0
+Ei2c_avalon
+w1442334071
+Z8 DPx4 ieee 11 numeric_std 0 22 WES[o8HS0jHV[MIXQk2Ha1
+Z9 DPx3 std 6 textio 0 22 Y8d?=bLj9m4jiPLbo;>GT0
+Z10 DPx4 ieee 14 std_logic_1164 0 22 1bm?@Gd;P>[>_lN8Do9gP3
+R4
+Z11 8D:/Documents/GitHub/I2C_Master_Slave_Avalon/i2c_top_level.vhd
+Z12 FD:/Documents/GitHub/I2C_Master_Slave_Avalon/i2c_top_level.vhd
+l0
+L6
+V1c5ZlCol6RT_7jhb[BYMM0
+!s100 Ej^S8@N?Phc:hA5^<bo943
+Z13 OL;C;10.2c;57
+32
+!s110 1442334076
+!i10b 1
+!s108 1442334076.484000
+Z14 !s90 -reportprogress|300|-work|work|-2002|-explicit|-vopt|D:/Documents/GitHub/I2C_Master_Slave_Avalon/i2c_top_level.vhd|
+!s107 D:/Documents/GitHub/I2C_Master_Slave_Avalon/i2c_top_level.vhd|
+!i111 0
+Z15 o-work work -2002 -explicit
+Z16 tExplicit 1
+Abehv
+R8
+R9
+R10
+DEx4 work 10 i2c_avalon 0 22 Zk<k75`WdLmzGdC_a;FMS0
+l47
+L28
+VBV7`7>0T1ehUWo>bCT;Jj2
+R13
+32
+R7
+!s108 1442333498.104000
+R14
+!s107 D:/Documents/GitHub/I2C_Master_Slave_Avalon/i2c_top_level.vhd|
+R15
+R16
+w1442275754
+!s100 JeM[HY<_iij4BIUaoYdW02
+!i10b 1
+!i111 0
+vtb
+R2
+R7
+ID;UfLPJDQ`::ojVHBI6S`3
+R3
+S1
+R4
+w1442275068
+8D:/Documents/GitHub/I2C_Master_Slave_Avalon/tb.sv
+FD:/Documents/GitHub/I2C_Master_Slave_Avalon/tb.sv
+L0 1
+R5
+r1
+31
+R6
+!i10b 1
+!s100 NAI4<RQU0<7FOREAecQzT3
+!s105 tb_sv_unit
+!s85 0
+!s108 1442333498.195000
+!s107 D:/Documents/GitHub/I2C_Master_Slave_Avalon/tb.sv|
+!s90 -reportprogress|300|-work|work|-vopt|-sv|D:/Documents/GitHub/I2C_Master_Slave_Avalon/tb.sv|
+!i111 0
