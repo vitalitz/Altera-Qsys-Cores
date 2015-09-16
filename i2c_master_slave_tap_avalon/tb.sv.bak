@@ -20,31 +20,31 @@ module tb;
         0   : begin
                 avs_address = 2;
                 avs_write = 1;
-                avs_write_data  = 8'h02;
+                avs_write_data  = 8'h92;
                 fsm++;
               end
         1   : begin
-                avs_address = 4;
-                avs_write = 1;
-                avs_write_data  = 8'b10010010;
+                avs_address = 0;
+                avs_write = 0;
+                avs_write_data  = 0;
                 fsm++;
               end
         2   : begin
-                avs_address = 4;
+                avs_address = 2;
                 avs_write = 1;
                 avs_write_data  = 8'h55;
                 fsm++;
               end
         3   : begin
-                avs_address = 4;
-                avs_write = 1;
-                avs_write_data  = 8'h77;
+                avs_address = 0;
+                avs_write = 0;
+                avs_write_data  = 0;
                 fsm++;
               end
         4   : begin
-                avs_address = 0;
+                avs_address = 2;
                 avs_write = 1;
-                avs_write_data  = 8'h03;
+                avs_write_data  = 8'h77;
                 fsm++;
               end 
         5   : begin
@@ -55,8 +55,8 @@ module tb;
               end
         6   : begin
                 avs_address = 0;
-                avs_write = 0;
-                avs_write_data  = 0;
+                avs_write = 1;
+                avs_write_data  = 3;
                 fsm++;
               end
         7   : begin
