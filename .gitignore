@@ -1,3 +1,5 @@
 *.wlf
 *.qpg
 *.qdb
+i2c_master_slave_tap_avalon/i2c_avalon.vhd.bak
+i2c_master_slave_tap_avalon/i2c_avalon_behv.vhd
