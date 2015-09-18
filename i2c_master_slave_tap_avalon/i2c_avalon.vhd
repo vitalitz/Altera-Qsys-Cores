@@ -42,17 +42,17 @@ architecture behv of i2c_avalon is
  signal shift_reg     :  std_logic_vector  (7 downto 0)  :=  (others =>  '0');
  type   buffer_array  is  array (bufSize downto 0) of std_logic_vector  (7 downto 0);
  signal data_buffer   :  buffer_array;
- signal counter       :  integer                         :=  0;
+ signal counter       :  integer  range 0 to  255        :=  0;
  signal fifo_index    :  integer  range 0 to  bufSize    :=  0;
  signal fifo_p        :  integer  range 0 to  bufSize    :=  0;
  signal bit_counter   :  integer  range 0 to  7          :=  0;
  
  type master_state_type is (op_idle, op_start0, op_start1, op_write0, op_write1, op_write2, op_check_ack0, op_check_ack1, op_check_ack2, op_check_ack3,
-  op_write3, op_read0, op_read1, op_read2, op_read3, sl_start, sl_ack0, sl_ack1, sl_nack0, sl_nack1, sl_write, sl_read);
+  op_write3, op_read0, op_read1, op_read2, op_read3, sl_start, sl_ack0, sl_ack1, sl_nack0, sl_nack1, sl_write, sl_read, sl_check_ack);
  signal i2c_op        :  master_state_type               := op_idle;
   
 begin
-  process (avs_clock)
+main:  process (avs_clock)
     begin
       if  (rising_edge(avs_clock))  then
         scl2  <=  scl1;
@@ -60,7 +60,6 @@ begin
         sda2  <=  sda1;
         sda1  <=  sda_in;
         
---    Avalon bus operations
         if  (avs_reset = '1') then
           avs_read_data <=  (others =>  '0');
           i2c_op        <=  op_idle;
@@ -104,172 +103,179 @@ begin
         end if;
         
       if  (reg_control(0) = '1')  then
---      Master I2C operations
-        if  (i2c_op = op_start0)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            i2c_op  <=  op_start1;
-            fifo_index  <=  0;
-            counter <=  0;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_start1)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_write0;
-            shift_reg  <=  data_buffer(fifo_index);
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_write0)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_write1;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_write1)  then
-          if  (scl_in = '1')  then
-            if (counter = to_integer(unsigned(i2c_clock))) then
-             counter <=  0;
-             i2c_op  <=  op_write2;
-           else
-             counter <=  counter + 1;
-           end if;
-         end if;
-        end if;
-        
-        if  (i2c_op = op_write2)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_write3;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_write3)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            if  (bit_counter = 7) then
-                i2c_op      <=  op_check_ack0;
-                bit_counter <=  0;
-            else
-              shift_reg  <=  shift_reg(6  downto  0)  & '0';
-              bit_counter <=  bit_counter + 1;
-              i2c_op      <=  op_write0;
-            end if;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_check_ack0)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_check_ack1;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_check_ack1)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_check_ack2;
-            reg_control(3)  <=  not sda_in;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_check_ack2)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            i2c_op  <=  op_check_ack3;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
-        if  (i2c_op = op_check_ack3)  then
-          if (counter = to_integer(unsigned(i2c_clock))) then
-            counter <=  0;
-            if  (reg_control(3) = '1')  then
-              if  (fifo_index = to_integer(unsigned(reg_wr_size)))  then
-                fifo_index          <=  0;
-                bit_counter     <=  0;
-                i2c_op          <= op_idle;
-                reg_control(1)  <=  '0';
-              else
-                i2c_op  <=  op_write0;
-                fifo_index  <=  fifo_index  + 1;
-                shift_reg <=  data_buffer(fifo_index  + 1);
-              end if;
-            else
-              i2c_op  <= op_start0;
-            end if;
-          else
-            counter <=  counter + 1;
-          end if;
-        end if;
-        
---  Slave I2C operations
-        if  (i2c_op = op_idle and scl_in = '1' and sda_in = '0' and sda1 = '0' and sda2 = '1')  then
-          i2c_op  <=  sl_start;
-        end if;
+        case  i2c_op  is
+          when  op_idle       =>
+                                  if  (scl_in = '1' and sda_in = '0' and sda1 = '0' and sda2 = '1')  then
+                                    i2c_op  <=  sl_start;
+                                  end if;
+          when  op_start0     =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    i2c_op  <=  op_start1;
+                                    fifo_index  <=  0;
+                                    counter <=  0;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_start1     =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_write0;
+                                    shift_reg  <=  data_buffer(fifo_index);
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_write0     =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_write1;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;     
+          when  op_write1     =>
+                                  if  (scl_in = '1')  then
+                                    if (counter = to_integer(unsigned(i2c_clock))) then
+                                      counter <=  0;
+                                      i2c_op  <=  op_write2;
+                                    else
+                                      counter <=  counter + 1;
+                                    end if;
+                                  end if;
+          when  op_write2     =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_write3;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_write3     =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    if  (bit_counter = 7) then
+                                        i2c_op      <=  op_check_ack0;
+                                        bit_counter <=  0;
+                                    else
+                                      shift_reg  <=  shift_reg(6  downto  0)  & '0';
+                                      bit_counter <=  bit_counter + 1;
+                                      i2c_op      <=  op_write0;
+                                    end if;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_check_ack0 =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_check_ack1;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_check_ack1 =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_check_ack2;
+                                    reg_control(3)  <=  not sda_in;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_check_ack2 =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    i2c_op  <=  op_check_ack3;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  op_check_ack3 =>
+                                  if (counter = to_integer(unsigned(i2c_clock))) then
+                                    counter <=  0;
+                                    if  (reg_control(3) = '1')  then
+                                      if  (fifo_index = to_integer(unsigned(reg_wr_size)))  then
+                                        fifo_index          <=  0;
+                                        bit_counter     <=  0;
+                                        i2c_op          <= op_idle;
+                                        reg_control(1)  <=  '0';
+                                      else
+                                        i2c_op  <=  op_write0;
+                                        fifo_index  <=  fifo_index  + 1;
+                                        shift_reg <=  data_buffer(fifo_index  + 1);
+                                      end if;
+                                    else
+                                      i2c_op  <= op_start0;
+                                    end if;
+                                  else
+                                    counter <=  counter + 1;
+                                  end if;
+          when  sl_start       =>
+                                  if  (scl_in = '1' and scl1 = '1' and scl2 = '0')  then
+                                    if  (bit_counter = 7) then
+                                      shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
+                                      bit_counter <=  0;
+                                      if  (shift_reg(6  downto  0) = i2cSlaveAddress)  then
+                                        i2c_op <=  sl_ack0;
+                                      else
+                                        i2c_op <=  sl_nack0;
+                                      end if;
+                                    else
+                                      shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
+                                      bit_counter <=  bit_counter + 1;
+                                    end if;
+                                  end if;
+          when  sl_ack0        =>
+                                  if (scl_in = '0' and scl1 = '0' and scl2 = '1')  then
+                                    i2c_op  <=  sl_ack1;
+                                    data_buffer(fifo_p) <=  shift_reg;
+                                  end if;
+          when  sl_ack1        =>
+                                  if (scl_in = '0' and scl1 = '0' and scl2 = '1')  then
+                                    fifo_p <=  fifo_p + 1;
+                                    if  (data_buffer(0)(0) = '0') then
+                                      i2c_op  <=  sl_read;
+                                    else
+                                      i2c_op  <=  sl_write;
+                                    end if;
+                                  end if;
+          when  sl_nack0       =>
+                                  if (scl_in = '0' and scl1 = '0' and scl2 = '1')  then
+                                    i2c_op <= sl_nack1;
+                                  end if;
+          when  sl_read        =>
+                                  if  (scl_in = '1' and scl1 = '1' and scl2 = '0')  then
+                                    if  (bit_counter = 7) then
+                                      shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
+                                      bit_counter <=  0;
+                                      i2c_op <=  sl_ack0;
+                                    else
+                                      shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
+                                      bit_counter <=  bit_counter + 1;
+                                    end if;
+                                  end if;
+          when  sl_write       =>
+                                  if  (scl_in = '1' and scl1 = '1' and scl2 = '0')  then
+                                    if  (bit_counter = 7) then
+                                      shift_reg  <=  shift_reg(6  downto  0)  & '0';
+                                      bit_counter <=  0;
+                                      i2c_op <=  sl_check_ack;
+                                    else
+                                      shift_reg  <=  shift_reg(6  downto  0)  & '0';
+                                      bit_counter <=  bit_counter + 1;
+                                    end if;
+                                  end if;
+          when  sl_check_ack   =>
+                                  if  (scl_in = '1' and scl1 = '1' and scl2 = '0')  then
+                                    if  (sda_in = '0') then
+                                      shift_reg  <=  shift_reg(6  downto  0)  & '0';
+                                      bit_counter <=  0;
+                                      i2c_op <=  sl_check_ack0;
+                                    else
+                                      shift_reg  <=  shift_reg(6  downto  0)  & '0';
+                                      bit_counter <=  bit_counter + 1;
+                                    end if;
+                                  end if;
+          when  others         => i2c_op  <=  op_idle;
+        end case;        
         
         if  (i2c_op /= op_check_ack3 and scl_in = '1' and sda_in = '1' and sda1 = '1' and sda2 = '0')  then
           i2c_op  <=  op_idle;
         end if;
-        
-        if  (i2c_op = sl_start and scl_in = '1' and scl1 = '1' and scl2 = '0')  then
-          if  (bit_counter = 7) then
-            shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
-            bit_counter <=  0;
-            if  (shift_reg(6  downto  0) = i2cSlaveAddress)  then
-              i2c_op <=  sl_ack0;
-            else
-              i2c_op <=  sl_nack0;
-            end if;
-          else
-            shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
-            bit_counter <=  bit_counter + 1;
-          end if;
-        end if;
-        
-        if (scl_in = '0' and scl1 = '0' and scl2 = '1')  then
-          if  (i2c_op = sl_ack0)  then
-            i2c_op  <=  sl_ack1;
-            data_buffer(fifo_p) <=  shift_reg;
-          elsif (i2c_op = sl_ack1)  then
-            fifo_p <=  fifo_p + 1;
-            if  (data_buffer(0)(0) = '0') then
-              i2c_op  <=  sl_read;
-            else
-              i2c_op  <=  sl_write;
-            end if;
-          elsif (i2c_op = sl_nack0) then
-            i2c_op <= sl_nack1;
-          end if;
-        end if;
-        
-        if  (i2c_op = sl_read and scl_in = '1' and scl1 = '1' and scl2 = '0')  then
-          if  (bit_counter = 7) then
-            shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
-            bit_counter <=  0;
-            i2c_op <=  sl_ack0;
-          else
-            shift_reg  <=  shift_reg(6  downto  0)  & sda_in;
-            bit_counter <=  bit_counter + 1;
-          end if;
-        end if;
+
       end if;
     end if;
   end process;
